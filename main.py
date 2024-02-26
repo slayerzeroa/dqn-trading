@@ -1,16 +1,32 @@
-# This is a sample Python script.
+import gym
+import json
+import datetime as dt
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# from stable_baslines3.common.policies import MlpPolicy
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3 import PPO
+import talib as ta
+from env.StockTradingEnv import StockTradingEnv
+
+import pandas as pd
+
+# Load data
+df = pd.read_csv("data/kospi_preprocessed/KOSPI.csv", encoding='cp949')
+df.dropna(inplace=True)
+df = df.sort_values('Date')
+df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
+print(df)
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+env = DummyVecEnv([lambda: StockTradingEnv(df)])
 
+model = PPO("MlpPolicy", env, verbose=1)
+model.learn(total_timesteps=5000)
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+obs = env.reset()
+for i in range(10000):
+    action, _states = model.predict(obs)
+    obs, rewards, done, info = env.step(action)
+    env.render(mode='human')
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+model.save("ppo2_stock_trading")
