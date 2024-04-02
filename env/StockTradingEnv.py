@@ -1,22 +1,26 @@
 import random
 import json
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 import pandas as pd
 import numpy as np
+from numpy.random import SeedSequence, default_rng
+import matplotlib.pyplot as plt
 
+# 초기 설정값
 MAX_ACCOUNT_BALANCE = 2147483647
 MAX_NUM_SHARES = 2147483647
 MAX_SHARE_PRICE = 5000
 MAX_STEPS = 20000
 
-INITIAL_ACCOUNT_BALANCE = 10000
-
+INITIAL_ACCOUNT_BALANCE = 10000 # 초기 투자금
 
 class StockTradingEnv(gym.Env):
+    metadata = {'render.modes': ['human']}
     def __init__(self, df):
-        super(StockTradingEnv, self).__init__()
+        super().__init__()
 
+        # 데이터 프레임 형식: ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
         self.df = df
         self.reward_range = (0, MAX_ACCOUNT_BALANCE)
 
@@ -30,23 +34,21 @@ class StockTradingEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0, high=1, shape=(6, 6), dtype=np.float16)
 
+        self.plot_data = []
+
     def _next_observation(self):
         # 5일 전까지의 주식 데이터를 가져와 0~1 사이로 스케일링
         frame = np.array([
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Open'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'High'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Low'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Close'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Volume'].values / MAX_NUM_SHARES
+            self.df.loc[self.current_step : self.current_step + 5, 'Open'].values / MAX_SHARE_PRICE,
+            self.df.loc[self.current_step : self.current_step + 5, 'High'].values / MAX_SHARE_PRICE,
+            self.df.loc[self.current_step : self.current_step + 5, 'Low'].values / MAX_SHARE_PRICE,
+            self.df.loc[self.current_step : self.current_step + 5, 'Close'].values / MAX_SHARE_PRICE,
+            self.df.loc[self.current_step : self.current_step + 5, 'Volume'].values / MAX_NUM_SHARES
         ])
+        print("before append shape: ", frame.shape)
 
         # 추가 데이터를 추가하고 각 값을 0-1 사이로 스케일링
-        obs1 = np.append(frame, [[
+        obs = np.append(frame, [[
             self.balance / MAX_ACCOUNT_BALANCE,
             self.max_net_worth / MAX_ACCOUNT_BALANCE,
             self.shares_held / MAX_NUM_SHARES,
@@ -54,7 +56,7 @@ class StockTradingEnv(gym.Env):
             self.total_shares_sold / MAX_NUM_SHARES,
             self.total_sales_value / (MAX_NUM_SHARES * MAX_SHARE_PRICE),
         ]], axis=0)
-        obs = obs1
+
         return obs
 
     def _take_action(self, action):
@@ -111,14 +113,22 @@ class StockTradingEnv(gym.Env):
 
         reward = self.balance * delay_modifier
 
-        # done은 net worth가 0보다 작거나 같을 때
-        done = self.net_worth <= 0
-
+        # terminated은 net worth가 0보다 작거나 같을 때
+        terminated = self.net_worth <= 0
+        # truncated
+        truncated = False
         # 다음 observation
-        obs = self._next_observation()
-        return obs, reward, done, {}
+        observation = self._next_observation()
+        info = {}
+        return observation, reward, terminated, truncated, info
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        if seed is not None:
+            ss = SeedSequence(seed)
+            self.rng = default_rng(ss)
+        else:
+            self.rng = default_rng()
+
         # 상태 초기화
         self.balance = INITIAL_ACCOUNT_BALANCE
         self.net_worth = INITIAL_ACCOUNT_BALANCE
@@ -130,21 +140,44 @@ class StockTradingEnv(gym.Env):
 
         # Set the current step to a random point within the data frame
         # 현재 가격을 Time Step 내의 랜덤 가격으로 설정
-        self.current_step = random.randint(
-            0, len(self.df.loc[:, 'Open'].values) - 6)
+        # self.current_step = random.randint(
+        #     0, len(self.df.loc[:, 'Open'].values) - 6)
+        self.current_step = self.rng.integers(0, len(self.df.loc[:, 'Open'].values) - 6)
 
-        return self._next_observation()
+        return self._next_observation(), {}
 
     def render(self, mode='human', close=False):
         # Render the environment to the screen
         profit = self.net_worth - INITIAL_ACCOUNT_BALANCE
 
-        print(f'Step: {self.current_step}')
-        print(f'Balance: {self.balance}')
-        print(
-            f'Shares held: {self.shares_held} (Total sold: {self.total_shares_sold})')
-        print(
-            f'Avg cost for held shares: {self.cost_basis} (Total sales value: {self.total_sales_value})')
-        print(
-            f'Net worth: {self.net_worth} (Max net worth: {self.max_net_worth})')
-        print(f'Profit: {profit}')
+        state = {
+            # 'Step': self.current_step,
+            'Balance': self.balance,
+            'Shares held': self.shares_held,
+            'Total sold': self.total_shares_sold,
+            'Avg cost for held shares': self.cost_basis,
+            'Total sales value': self.total_sales_value,
+            'Net worth': self.net_worth,
+            'Max net worth': self.max_net_worth,
+            'Profit': profit
+        }
+
+
+        if mode == 'human':
+            print(f"------------Step: {self.current_step}-----------------")
+            for key, value in state.items():
+                print(f"{key}: {value}")
+            print("--------------------------------")
+            self.plot_data.append([self.net_worth])
+
+        else:
+            raise ValueError("Invalid render mode. Choose 'human' or 'system'.")
+
+    # render using matplotlib
+
+    def render_plot(self):
+        df = pd.DataFrame(self.plot_data, columns=['net_worth'])
+        # plt.plot(df['balance'], c='r', label='Balance')
+        plt.plot(df['net_worth'], c='g', label='Net Worth')
+        plt.legend(loc='upper left')
+        plt.show()
