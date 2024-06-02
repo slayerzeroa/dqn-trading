@@ -28,32 +28,16 @@ model = PPO("MlpPolicy", env, verbose=1)
 
 # Total timesteps is the number of steps that the agent takes in the environment
 # Total timesteps / number of steps per episode = number of episodes
-model.learn(total_timesteps=2000)
+model.learn(total_timesteps=20000)
 
 obs = env.reset()[0]
-print(obs)
-print(obs.shape)
-# # Render each environment separately
-# for _ in range(10000):
-#     action, _states = model.predict(obs)
-#     observation, reward, terminated, truncated, info = env.step(action)
-#     env.render()
-#
-# env.render_plot()
-#
-# # model.save("ppo2_stock_trading")
-#
-# def evaluate_model(model, validation_dataset):
-#     total_rewards = []
-#     for episode in validation_dataset:
-#         obs = episode['obs']
-#         rewards = 0
-#         done = False
-#         while not done:
-#             action, _ = model.predict(obs, deterministic=True)
-#             obs, reward, done, info = env.step(action)
-#             rewards += reward
-#         total_rewards.append(rewards)
-#     mean_reward = sum(total_rewards) / len(total_rewards)
-#     std_reward = np.std(total_rewards)
-#     return mean_reward, std_reward
+
+# Render each environment separately
+for _ in range(1000):
+    action, _states = model.predict(obs)
+    observation, reward, terminated, truncated, info = env.step(action)
+    env.render()
+
+env.render_plot()
+
+# model.save("ppo2_stock_trading")
