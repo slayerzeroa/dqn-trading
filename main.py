@@ -34,7 +34,7 @@ model.learn(total_timesteps=20000)
 obs = env.reset()[0]
 
 # Render each environment separately
-for _ in range(100000):
+for _ in range(20000):
     action, _states = model.predict(obs)
     observation, reward, terminated, truncated, info = env.step(action)
     env.render()
