@@ -40,7 +40,6 @@ model = PPO("MlpPolicy", env, verbose=1)
 model.learn(total_timesteps=len(df)*10)
 
 obs, empty = env.reset()
-print(obs)
 
 print("mean: ", df['Close'].mean())
 plt.plot(df['Volume'])
@@ -48,8 +47,9 @@ plt.show()
 
 plt.plot(df['Close'])
 plt.show()
+
 # Render each environment separately
-for _ in range(len(df)):
+for _ in range(len(df)-1):
     action, _states = model.predict(obs)
     observation, reward, terminated, truncated, info = env.step(action)
     env.render()
