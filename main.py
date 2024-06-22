@@ -15,6 +15,8 @@ from numpy.random import SeedSequence, default_rng
 
 import matplotlib.pyplot as plt
 
+# reference: https://github.com/notadamking/Stock-Trading-Environment
+
 ss = SeedSequence(12345)
 rng = default_rng(ss)
 
@@ -31,12 +33,16 @@ model = PPO("MlpPolicy", env, verbose=1)
 
 # Total timesteps is the number of steps that the agent takes in the environment
 # Total timesteps / number of steps per episode = number of episodes
-model.learn(total_timesteps=20000)
+model.learn(total_timesteps=len(df)*1000)
 
 obs = env.reset()[0]
+print(obs)
 
 print("mean: ", df['Close'].mean())
 plt.plot(df['Volume'])
+plt.show()
+
+plt.plot(df['Close'])
 plt.show()
 # Render each environment separately
 for _ in range(len(df)):

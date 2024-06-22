@@ -22,6 +22,10 @@ class ExpectVwapEnv(gym.Env):
         self.df = df
         self.reward_range = (0, MAX_AVERGAE_PRICE)
 
+        # 초기 설정값
+        # shares_bought = 각 step에서 산 주식 수
+        self.shares_bought = 0
+
 
         # gym 라이브러리의 spaces 모듈을 사용하여 action_space를 설정
         # 0~1:  Do nothing, Action
@@ -37,7 +41,7 @@ class ExpectVwapEnv(gym.Env):
         self.shares_held_data = []
 
     def _next_observation(self):
-        # 5일 전까지의 주식 데이터를 가져와 0~1 사이로 스케일링
+        # 장시작부터 Current Step 이전까지의 데이터를 0~1 사이로 스케일링
         frame = np.array([
             self.df.loc[:self.current_step, 'Open'].values / MAX_SHARE_PRICE,
             self.df.loc[:self.current_step, 'High'].values / MAX_SHARE_PRICE,
@@ -59,16 +63,16 @@ class ExpectVwapEnv(gym.Env):
         volume = action[1]
 
         if action_type > 0.5:
-            shares_bought = float(volume)
+            self.shares_bought = float(volume)
             prev_cost = self.cost_basis * self.shares_held
-            additional_cost = shares_bought * current_price
+            additional_cost = self.shares_bought * current_price
 
-            if self.shares_held + shares_bought > 0:
-                self.cost_basis = (prev_cost + additional_cost) / (self.shares_held + shares_bought)
+            if self.shares_held + self.shares_bought > 0:
+                self.cost_basis = (prev_cost + additional_cost) / (self.shares_held + self.shares_bought)
             else:
                 self.cost_basis = 0
 
-            self.shares_held += shares_bought
+            self.shares_held += self.shares_bought
 
 
     def step(self, action):
@@ -84,7 +88,16 @@ class ExpectVwapEnv(gym.Env):
         # 몇 주 이상은 가지고 있어야 한다
         # Market VWAP - Our VWAP
         market_vwap = ((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) / self.df.loc[:self.current_step, 'Volume'].values.sum()
-        reward = -(market_vwap - self.cost_basis)
+
+        # volume만 가지고 reward 만들어 볼까?
+        # reward = -abs(self.df.loc[self.current_step, 'Volume'] - self.shares_bought)*1000
+        reward = self.df.loc[self.current_step, 'Volume']
+
+        if self.shares_bought < 2:
+            reward = -10000
+        else:
+            reward = market_vwap - self.cost_basis
+
 
         terminated = self.current_step >= MAX_STEPS
         # truncated
@@ -106,8 +119,8 @@ class ExpectVwapEnv(gym.Env):
         self.cost_basis = 0
 
         # Set the current step to a random point within the data frame
-        # 현재 가격을 Time Step 내의 랜덤 가격으로 설정
-        self.current_step = self.rng.integers(0, len(self.df.loc[:, 'Open'].values))
+        # Current Step을 0으로 설정
+        self.current_step = 0
 
         return self._next_observation(), {}
 
