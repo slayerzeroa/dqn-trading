@@ -34,7 +34,7 @@ class ExpectVwapEnv(gym.Env):
             low=0, high=1, shape=(MAX_STEPS, 5), dtype=np.float32)
 
         self.plot_data = []
-        self.volume_data = []
+        self.shares_held_data = []
 
     def _next_observation(self):
         # 5일 전까지의 주식 데이터를 가져와 0~1 사이로 스케일링
@@ -59,7 +59,7 @@ class ExpectVwapEnv(gym.Env):
         volume = action[1]
 
         if action_type > 0.5:
-            shares_bought = int(volume)
+            shares_bought = float(volume)
             prev_cost = self.cost_basis * self.shares_held
             additional_cost = shares_bought * current_price
 
@@ -81,6 +81,7 @@ class ExpectVwapEnv(gym.Env):
             self.current_step = 0
 
         # reward 계산
+        # 몇 주 이상은 가지고 있어야 한다
         # Market VWAP - Our VWAP
         market_vwap = ((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) / self.df.loc[:self.current_step, 'Volume'].values.sum()
         reward = -(market_vwap - self.cost_basis)
@@ -129,7 +130,7 @@ class ExpectVwapEnv(gym.Env):
                 print(f"{key}: {value}")
             print("--------------------------------")
             self.plot_data.append([vwap_gap])
-            self.volume_data.append([self.shares_held])
+            self.shares_held_data.append([self.shares_held])
 
         else:
             raise ValueError("Invalid render mode. Choose 'human' or 'system'.")
@@ -138,10 +139,13 @@ class ExpectVwapEnv(gym.Env):
     def render_plot(self):
         df = pd.DataFrame(self.plot_data, columns=['vwap_gap'])
         # plt.plot(df['balance'], c='r', label='Balance')
-        plt.plot(df['vwap_gap'].iloc[10:], c='g', label='VWAP gap')
+        plt.plot(df['vwap_gap'].iloc[30:], c='g', label='VWAP gap')
         plt.legend(loc='upper left')
         plt.show()
 
-        plt.plot(self.volume_data, c='b', label='Shares held')
+        df_shd = pd.DataFrame(self.shares_held_data, columns=['shares_held'])
+        df_shd['chg'] = df_shd['shares_held'].diff()
+        plt.plot(df_shd['chg'], c='r', label='Shares Buy at each step')
+        # plt.plot(self.shares_held_data, c='b', label='Shares held')
         plt.legend(loc='upper left')
         plt.show()

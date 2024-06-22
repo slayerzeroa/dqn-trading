@@ -13,6 +13,8 @@ from env.ExpectVwapEnv import ExpectVwapEnv
 import pandas as pd
 from numpy.random import SeedSequence, default_rng
 
+import matplotlib.pyplot as plt
+
 ss = SeedSequence(12345)
 rng = default_rng(ss)
 
@@ -33,8 +35,11 @@ model.learn(total_timesteps=20000)
 
 obs = env.reset()[0]
 
+print("mean: ", df['Close'].mean())
+plt.plot(df['Volume'])
+plt.show()
 # Render each environment separately
-for _ in range(20000):
+for _ in range(len(df)):
     action, _states = model.predict(obs)
     observation, reward, terminated, truncated, info = env.step(action)
     env.render()
