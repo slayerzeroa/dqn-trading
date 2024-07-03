@@ -7,40 +7,39 @@ import numpy as np
 from numpy.random import SeedSequence, default_rng
 import matplotlib.pyplot as plt
 
-# 초기 설정값
-MAX_AVERGAE_PRICE = 1e6
-MAX_NUM_SHARES = 1e6
-MAX_SHARE_PRICE = 1e6
-MAX_STEPS = 1400
+
 
 class ExpectVwapEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     def __init__(self, df):
         super().__init__()
 
+        # 초기 설정값
+        self.MAX_NUM_SHARES = 1e6
+        self.MAX_SHARE_PRICE = 1e6
+        self.MAX_STEPS = len(df)
+
         # 데이터 프레임 형식: ['time', open', 'high', 'low', 'close', 'volume']
         self.df = df
-        self.reward_range = (0, MAX_AVERGAE_PRICE)
 
         # 초기 설정값
         # shares_bought = 각 step에서 산 주식 수
         self.shares_bought = 0
 
         # # gym 라이브러리의 spaces 모듈을 사용하여 action_space를 설정
-        # # 0~1:  Do nothing, Action
         # # 0~MAX NUM SHARES: Trading Volume
         # self.action_space = spaces.Box(
         #     low=np.array([0, 0]), high=np.array([1, 1]), dtype=np.float32)
 
         # 0~MAX NUM SHARES: Trading Volume
         self.action_space = spaces.Box(
-            low=np.array([0]), high=np.array([1]), dtype=np.float32)
+            low=np.array([0]), high=np.array([self.MAX_NUM_SHARES]), dtype=np.float32)
 
 
 
         # 현재까지 관찰된 주식 데이터를 관찰(시가, 종가, 고가, 저가, 거래량)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(MAX_STEPS, 5), dtype=np.float32)
+            low=0, high=1, shape=(self.MAX_STEPS, 6), dtype=np.float32)
 
         self.plot_data = []
         self.shares_held_data = []
@@ -49,13 +48,14 @@ class ExpectVwapEnv(gym.Env):
     def _next_observation(self):
         # 장시작부터 Current Step 이전까지의 데이터를 0~1 사이로 스케일링
         frame = np.array([
-            self.df.loc[:self.current_step, 'Open'].values / MAX_SHARE_PRICE,
-            self.df.loc[:self.current_step, 'High'].values / MAX_SHARE_PRICE,
-            self.df.loc[:self.current_step, 'Low'].values / MAX_SHARE_PRICE,
-            self.df.loc[:self.current_step, 'Close'].values / MAX_SHARE_PRICE,
-            self.df.loc[:self.current_step, 'Volume'].values / MAX_NUM_SHARES
+            self.df.loc[:self.current_step, 'Time'].values / self.MAX_STEPS,
+            self.df.loc[:self.current_step, 'Open'].values / self.MAX_SHARE_PRICE,
+            self.df.loc[:self.current_step, 'High'].values / self.MAX_SHARE_PRICE,
+            self.df.loc[:self.current_step, 'Low'].values / self.MAX_SHARE_PRICE,
+            self.df.loc[:self.current_step, 'Close'].values / self.MAX_SHARE_PRICE,
+            self.df.loc[:self.current_step, 'Volume'].values / self.MAX_NUM_SHARES
         ]).T
-        obs = np.zeros((MAX_STEPS, 5))
+        obs = np.zeros((self.MAX_STEPS, 6))
         obs[:self.current_step+1, :] = frame
         return obs
 
@@ -71,7 +71,7 @@ class ExpectVwapEnv(gym.Env):
         # 주식을 Action Space에서 정한 양만큼 사고 평균 가격을 업데이트
         self.shares_bought = float(volume)
         prev_cost = self.cost_basis * self.shares_held
-        additional_cost = self.shares_bought * current_price
+        additional_cost = current_price * self.shares_bought
 
         if self.shares_held + self.shares_bought > 0:
             self.cost_basis = (prev_cost + additional_cost) / (self.shares_held + self.shares_bought)
@@ -87,7 +87,7 @@ class ExpectVwapEnv(gym.Env):
         self.current_step += 1
 
         # 종료 조건
-        if self.current_step >= MAX_STEPS:
+        if self.current_step >= self.MAX_STEPS:
             self.current_step = 0
             print("Episode terminated")
 
@@ -95,10 +95,16 @@ class ExpectVwapEnv(gym.Env):
         # 몇 주 이상은 가지고 있어야 한다
         # Market VWAP - Our VWAP
         market_vwap = ((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) / self.df.loc[:self.current_step, 'Volume'].values.sum()
-        reward = (market_vwap - self.cost_basis) * 10
+
+        # if self.shares_bought == 0:
+        #     bought_factor = 0
+        # else:
+        #     bought_factor = 1/self.shares_bought
+
+        reward = (market_vwap - self.cost_basis) / market_vwap * 100
 
         # terminated
-        terminated = (self.current_step >= MAX_STEPS)
+        terminated = (self.current_step >= self.MAX_STEPS)
 
         # print("Current Step: ", self.current_step)
         # print(terminated)

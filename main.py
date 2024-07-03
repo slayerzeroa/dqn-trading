@@ -10,6 +10,7 @@ from stable_baselines3 import DQN
 import talib as ta
 # from env.StockTradingEnv import StockTradingEnv
 from env.ExpectVwapEnv import ExpectVwapEnv
+# from env.VwapEnvTest import ExpectVwapEnv
 
 import pandas as pd
 from numpy.random import SeedSequence, default_rng
@@ -27,17 +28,21 @@ rng = default_rng(ss)
 # Load data
 df = pd.read_csv("data/coin_data/btc_result.csv", encoding='cp949')
 df = df[['time', 'open', 'high', 'low', 'close', 'volume']]
-df.columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+df.columns = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume']
+df = df.reset_index(drop=False)
 
 
 # Create environment
 env = ExpectVwapEnv(df)
 
 # Create model
-model = PPO("MlpPolicy", env, verbose=1)
+model = PPO("MlpPolicy", env, learning_rate=0.0001, verbose=1)
 
 # Total timesteps / Number of steps per episode = Number of episodes
-model.learn(total_timesteps=len(df)*10)
+model.learn(total_timesteps=len(df)*100)
+
+# Save model
+model.save("ppo2_vwap_predict")
 
 obs, empty = env.reset()
 
