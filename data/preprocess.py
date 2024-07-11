@@ -6,7 +6,7 @@ import pandas as pd
 
 def preprocess_kospi_data():
     # get the file names
-    file_names = glob.glob("/home/ydm/PycharmProjects/DQN-Trading/data/kospi_index/*.csv")
+    file_names = glob.glob("/kospi_daily/*.csv")
 
     print(file_names)
     # read the files

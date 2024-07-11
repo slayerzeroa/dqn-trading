@@ -17,6 +17,8 @@ from numpy.random import SeedSequence, default_rng
 
 import matplotlib.pyplot as plt
 
+from common.callbacks import SaveEpisodesCallback
+
 '''
 reference: https://github.com/notadamking/Stock-Trading-Environment
 '''
@@ -26,7 +28,7 @@ ss = SeedSequence(12345)
 rng = default_rng(ss)
 
 # Load data
-df = pd.read_csv("data/coin_data/btc_result.csv", encoding='cp949')
+df = pd.read_csv("data/crypto/btc_result.csv", encoding='cp949')
 df = df[['time', 'open', 'high', 'low', 'close', 'volume']]
 df.columns = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume']
 df = df.reset_index(drop=False)
@@ -34,6 +36,10 @@ df = df.reset_index(drop=False)
 
 # Create environment
 env = ExpectVwapEnv(df)
+
+# Create Callback
+log_dir = "/model/"
+callback = SaveEpisodesCallback(check_freq=1000, log_dir=log_dir, verbose=1)
 
 # Create model
 model = PPO("MlpPolicy", env, learning_rate=0.0001, verbose=1)

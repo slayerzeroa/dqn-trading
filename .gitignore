@@ -1,1 +1,3 @@
-data/kospi_index
+data/kospi_daily
+data/kospi_preprocessed
+data/raw
