@@ -7,33 +7,34 @@ import numpy as np
 from numpy.random import SeedSequence, default_rng
 import matplotlib.pyplot as plt
 
-
-class ExpectVolumeEnv(gym.Env):
+class ExpectVolumeEnvDiscrete(gym.Env):
     metadata = {'render.modes': ['human']}
     def __init__(self, df):
         super().__init__()
 
         # 초기 설정값
-        self.MAX_NUM_SHARES = 1e6
+        self.MAX_NUM_SHARES = int(1e6)
         self.MAX_STEPS = len(df)
 
         # 데이터 프레임 형식: ['time', 'volume']
         self.df = df
 
         # 초기 설정값
-        # shares_buy = 각 step에서 산 주식 수, shares_held = 보유 주식 수, discount_factor = 할인율
+        # shares_buy = 각 step에서 산 주식 수
         self.shares_buy = 0
-        self.shares_held = 0
-        self.discount_factor = 0
 
         # # gym 라이브러리의 spaces 모듈을 사용하여 action_space를 설정
         # 0~MAX NUM SHARES: Trading Volume
-        self.action_space = spaces.Box(
-            low=np.array([0]), high=np.array([self.MAX_NUM_SHARES]), dtype=np.float32)
+        self.action_space = spaces.Discrete(self.MAX_NUM_SHARES)
 
-        # 현재까지 관찰된 주식 데이터를 관찰(시점, 거래량)
-        self.observation_space = spaces.Box(
-            low=0, high=1, shape=(self.MAX_STEPS, 2), dtype=np.float32)
+        # observation_space를 Dict로 설정하고 goal 관련 키를 추가
+        # observation_space를 단순화하여 중첩된 Dict를 피함
+        self.observation_space = spaces.Dict({
+            'time': spaces.Box(low=0, high=1, shape=(self.MAX_STEPS, 1), dtype=np.float32),
+            'volume': spaces.Box(low=0, high=self.MAX_NUM_SHARES, shape=(self.MAX_STEPS, 1), dtype=np.float32),
+            'achieved_goal': spaces.Box(low=0, high=self.MAX_NUM_SHARES, shape=(1,), dtype=np.float32),
+            'desired_goal': spaces.Box(low=0, high=self.MAX_NUM_SHARES, shape=(1,), dtype=np.float32),
+        })
 
         self.plot_data = []
         self.shares_held_data = []
@@ -41,21 +42,27 @@ class ExpectVolumeEnv(gym.Env):
 
     def _next_observation(self):
         # 장시작부터 Current Step 이전까지의 데이터를 0~1 사이로 스케일링
-        frame = np.array([
-            self.df.loc[:self.current_step, 'Time'].values / self.MAX_STEPS,
-            self.df.loc[:self.current_step, 'Volume'].values / self.MAX_NUM_SHARES
-        ]).T
+        time_frame = self.df.loc[:self.current_step, 'Time'].values / self.MAX_STEPS
+        volume_frame = self.df.loc[:self.current_step, 'Volume'].values / self.MAX_NUM_SHARES
 
-        # Observation은 장 시작부터 current step까지의 데이터를 포함
-        obs = np.zeros((self.MAX_STEPS, 2))
-        obs[:self.current_step + 1, :] = frame
-        return obs
+        # time과 volume을 Dict로 반환
+        observation = {
+            'time': np.zeros((self.MAX_STEPS, 1)),
+            'volume': np.zeros((self.MAX_STEPS, 1)),
+            'achieved_goal': np.array([self.shares_buy], dtype=np.float32),
+            'desired_goal': np.array([self.df.loc[self.current_step, 'Volume']], dtype=np.float32)
+        }
+        observation['time'][:self.current_step + 1, 0] = time_frame
+        observation['volume'][:self.current_step + 1, 0] = volume_frame
+
+        return observation
 
     def _take_action(self, action):
         current_price = random.uniform(
             self.df.loc[self.current_step, "Open"], self.df.loc[self.current_step, "Close"])
 
-        volume = action[0]
+        # action은 이미 정수형 스칼라 값이므로, 바로 사용하면 됩니다.
+        volume = action
 
         # 주식을 Action Space에서 정한 양만큼 사고 평균 가격을 업데이트
         self.shares_buy = volume
@@ -70,6 +77,28 @@ class ExpectVolumeEnv(gym.Env):
 
         self.shares_held += self.shares_buy
 
+    def compute_reward(self, achieved_goal, desired_goal, info):
+        if np.any(achieved_goal < 10):
+            if np.any(achieved_goal < 0):
+                reward = -100
+            else:
+                reward = -1
+        if np.any(achieved_goal >= 10):
+            reward =-(((achieved_goal - desired_goal) / self.MAX_NUM_SHARES) ** 2)
+        # 목표와 달성된 목표를 비교하여 보상을 계산
+        return reward
+
+    def _calculate_reward(self, achieved_goal, desired_goal):
+        if np.any(achieved_goal < 10):
+            if np.any(achieved_goal < 0):
+                reward = -100
+            else:
+                reward = -1
+        if np.any(achieved_goal >= 10):
+            reward =-(((achieved_goal - desired_goal) / self.MAX_NUM_SHARES) ** 2)
+        # 목표와 달성된 목표를 비교하여 보상을 계산
+        return reward
+
 
     def step(self, action):
         # action을 취하고, reward를 계산
@@ -82,9 +111,8 @@ class ExpectVolumeEnv(gym.Env):
             self.current_step = 0
             print("Episode terminated")
 
-        # reward 계산
-        self.shares_held += self.shares_buy
-        self.discount_factor = self.current_step / self.MAX_STEPS
+        # # reward 계산
+        # reward = -(((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2)
 
         if self.shares_buy < 10:
             if self.shares_buy < 0:
@@ -92,7 +120,14 @@ class ExpectVolumeEnv(gym.Env):
             else:
                 reward = -1
         if self.shares_buy >= 10:
-            reward = -(((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2) * self.discount_factor
+            reward =-(((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2)
+
+        # reward = -((self.shares_buy - self.df.loc[self.current_step, 'Volume'])**2)
+        #
+        # if self.cost_basis == 0:
+        #     reward = 0
+
+        # print("reward: ", reward)
 
         # truncated
         truncated = False
