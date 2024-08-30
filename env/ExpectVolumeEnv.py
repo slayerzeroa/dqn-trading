@@ -39,6 +39,7 @@ class ExpectVolumeEnv(gym.Env):
         self.shares_held_data = []
         self.market_vwap_data = []
 
+        self.losses = []
     def _next_observation(self):
         # 장시작부터 Current Step 이전까지의 데이터를 0~1 사이로 스케일링
         frame = np.array([
@@ -87,12 +88,14 @@ class ExpectVolumeEnv(gym.Env):
         self.discount_factor = self.current_step / self.MAX_STEPS
 
         if self.shares_buy < 10:
-            if self.shares_buy < 0:
+            if self.shares_buy <= 0:
                 reward = -100
             else:
                 reward = -1
         if self.shares_buy >= 10:
             reward = -(((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2) * self.discount_factor
+
+        self.losses.append(reward)
 
         # truncated
         truncated = False
@@ -146,22 +149,27 @@ class ExpectVolumeEnv(gym.Env):
             raise ValueError("Invalid render mode. Choose 'human' or 'system'.")
 
     # render using matplotlib
-    def render_plot(self):
+    def render_plot(self, data_date:str):
         # df = pd.DataFrame([[self.plot_data,self.shares_held_data]], columns=['vwap_gap, shares_held'])
 
         df = pd.DataFrame(self.plot_data, columns=['vwap_gap'])
         df['shares_held'] = self.shares_held_data
         df['market_vwap'] = self.market_vwap_data
 
-        plt.plot(df['market_vwap'], c='g', label='Market VWAP')
+        plt.plot(df['market_vwap'], c='g', label=f'{data_date} Market VWAP')
         plt.legend(loc='upper left')
         plt.show()
 
-        plt.plot(df['vwap_gap'].iloc[30:], c='g', label='VWAP gap')
+        plt.plot(df['vwap_gap'].iloc[30:], c='g', label=f'{data_date} VWAP gap')
         plt.legend(loc='upper left')
         plt.show()
 
         df['shares_chg'] = df['shares_held'].diff()
-        plt.plot(df['shares_chg'], c='r', label='Shares Buy at each step')
+        plt.plot(df['shares_chg'], c='r', label=f'{data_date} Shares Buy at each step')
+        plt.legend(loc='upper left')
+        plt.show()
+
+
+        plt.plot(self.losses, c='r', label=f'{data_date} Losses')
         plt.legend(loc='upper left')
         plt.show()

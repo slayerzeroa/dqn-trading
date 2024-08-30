@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 
 from stable_baselines3.common.callbacks import CheckpointCallback
 
+import datetime
+
 
 '''
 reference
@@ -47,9 +49,14 @@ rng = default_rng(ss)
 
 # Load data
 df = pd.read_csv("data/test/test.csv", encoding='cp949')
+# df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20211105.csv", encoding='cp949')
+# df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20220215.csv", encoding='cp949')
+# df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20231106.csv", encoding='cp949')
 df = df[df['지수명']=='코스피']
 # 마지막 2개 행 제거
 df = df.iloc[:-2]
+
+data_date = str(df['거래일자'].iloc[0])
 
 df = df[['거래시각', '시가', '고가', '저가', '종가', '거래량']]
 df.columns = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -65,7 +72,7 @@ env = ExpectVolumeEnv(df)
 
 
 callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=1, verbose=1)
-stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=100, min_evals=1000, verbose=1)
+stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=1000, min_evals=100, verbose=1)
 
 eval_callback = EvalCallback(
     env,
@@ -95,20 +102,23 @@ model = PPO("MlpPolicy",
             )
 
 
-# # Total timesteps / Number of steps per episode = Number of episodes
-# model.learn(total_timesteps=len(df)*100)
+# Total timesteps / Number of steps per episode = Number of episodes
+model.learn(total_timesteps=len(df)*1000)
 
-# Save model
-# model.save("ppo_vwap_predict")
+# # Save model
+# model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}.zip")
+model.save(f"./logs/ppo_vwap_predict_test.zip")
 
-model.load("./logs/ppo_vwap_predict_240828.zip")
+# model.load("./logs/ppo_vwap_predict_240828.zip")
+# model.load("./logs/ppo_vwap_predict_20240830.zip")
+
 obs, empty = env.reset()
 
 print("mean: ", df['Close'].mean())
-plt.plot(df['Volume'])
+plt.plot(df['Volume'], label=f'{data_date} Market Volume')
 plt.show()
 
-plt.plot(df['Close'])
+plt.plot(df['Close'], label=f'{data_date} Market Close')
 plt.show()
 
 # Render each environment separately
@@ -117,4 +127,4 @@ for _ in range(len(df)-1):
     observation, reward, terminated, truncated, info = env.step(action)
     env.render()
 
-env.render_plot()
+env.render_plot(data_date=data_date)
