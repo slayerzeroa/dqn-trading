@@ -44,13 +44,13 @@ Data
 '''
 
 # Set seed for reproducibility
-ss = SeedSequence(12345)
+ss = SeedSequence(42)
 rng = default_rng(ss)
 
 # Load data
-df = pd.read_csv("data/test/test.csv", encoding='cp949')
+# df = pd.read_csv("data/test/test.csv", encoding='cp949')
 # df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20211105.csv", encoding='cp949')
-# df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20220215.csv", encoding='cp949')
+df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20220215.csv", encoding='cp949')
 # df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20231106.csv", encoding='cp949')
 df = df[df['지수명']=='코스피']
 # 마지막 2개 행 제거
@@ -102,17 +102,19 @@ model = PPO("MlpPolicy",
             )
 
 
-# Total timesteps / Number of steps per episode = Number of episodes
-model.learn(total_timesteps=len(df)*1000)
+# # Total timesteps / Number of steps per episode = Number of episodes
+# model.learn(total_timesteps=len(df)*100000)
 
-# # Save model
-# model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}.zip")
-model.save(f"./logs/ppo_vwap_predict_test.zip")
+# Save model
+# model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}_{data_date}.zip")
+# model.save(f"./logs/ppo_vwap_predict_test.zip")
 
 # model.load("./logs/ppo_vwap_predict_240828.zip")
 # model.load("./logs/ppo_vwap_predict_20240830.zip")
+# model.load(f"./logs/ppo_vwap_predict_test.zip")
+model.load("./logs/ppo_vwap_predict_20240831_20220215.zip", seed=42)
 
-obs, empty = env.reset()
+obs, empty = env.reset(seed=42)
 
 print("mean: ", df['Close'].mean())
 plt.plot(df['Volume'], label=f'{data_date} Market Volume')

@@ -87,20 +87,22 @@ class ExpectVolumeEnv(gym.Env):
         self.shares_held += self.shares_buy
         self.discount_factor = self.current_step / self.MAX_STEPS
 
-        if self.shares_buy < 10:
+        if self.shares_buy < 4:
             if self.shares_buy <= 0:
-                reward = -100
+                reward = -10
             else:
                 reward = -1
-        if self.shares_buy >= 10:
+        if self.shares_buy >= 4:
             market_vwap = ((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) / self.df.loc[:self.current_step, 'Volume'].values.sum()
             better_than_market =  market_vwap > self.cost_basis
             if better_than_market:
+                # print("Better than market!!")
                 # 시장 VWAP보다 높은 가격에 주식을 사면 보상을 받음
-                reward = (((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2) * self.discount_factor
+                reward = 100
             else:
                 # 시장 VWAP보다 낮은 가격에 주식을 사면 벌점을 받음
                 reward = -(((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2) * self.discount_factor
+
         # remain_time = self.MAX_STEPS - self.current_step
         # reward = (market_vwap - self.cost_basis) / market_vwap * 100 / remain_time
         self.losses.append(reward)
