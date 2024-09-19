@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 class ExpectVolumeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
-    def __init__(self, df):
+    def __init__(self, df, seed=None):
         super().__init__()
 
         # 초기 설정값
@@ -19,6 +19,17 @@ class ExpectVolumeEnv(gym.Env):
 
         # 데이터 프레임 형식: ['time', 'volume']
         self.df = df
+
+
+        # 시드 설정
+        self.seed = seed
+
+        if self.seed is not None:
+            ss = SeedSequence(self.seed)
+            self.rng = default_rng(ss)
+
+        else:
+            self.rng = default_rng()
 
         # 초기 설정값
         # shares_buy = 각 step에서 산 주식 수, shares_held = 보유 주식 수, discount_factor = 할인율
@@ -80,27 +91,33 @@ class ExpectVolumeEnv(gym.Env):
         # 종료 조건
         terminated = (self.current_step >= self.MAX_STEPS)
         if terminated:
-            self.current_step = 0
+            # self.current_step = 0
+            self.reset(seed=self.seed)
             print("Episode terminated")
 
         # reward 계산
+        # 현재 들고 있는 주식 수
         self.shares_held += self.shares_buy
+        # 할인율 계산 장종료에 가까울수록 비중이 높아짐
         self.discount_factor = self.current_step / self.MAX_STEPS
 
+        # 코브라 효과 억제(주식을 안 살 때 Penalty)
         if self.shares_buy < 4:
             if self.shares_buy <= 0:
-                reward = -10
+                reward = -100
             else:
                 reward = -1
         if self.shares_buy >= 4:
-            market_vwap = ((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) / self.df.loc[:self.current_step, 'Volume'].values.sum()
+            # 시장 VWAP 계산
+            market_vwap = (((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) /
+                           self.df.loc[:self.current_step, 'Volume'].values.sum())
+            # 시장 VWAP보다 낮은 가격에 주식을 사면
             better_than_market =  market_vwap > self.cost_basis
             if better_than_market:
-                # print("Better than market!!")
-                # 시장 VWAP보다 높은 가격에 주식을 사면 보상을 받음
+                # 시장 VWAP보다 높은 가격에 주식을 사면 Reward을 받음
                 reward = 100
             else:
-                # 시장 VWAP보다 낮은 가격에 주식을 사면 벌점을 받음
+                # 시장 VWAP보다 낮은 가격에 주식을 사면 Penalty을 받음
                 reward = -(((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2) * self.discount_factor
 
         # remain_time = self.MAX_STEPS - self.current_step
@@ -133,7 +150,8 @@ class ExpectVolumeEnv(gym.Env):
         return self._next_observation(), {}
 
     def render(self, mode='human', close=False):
-        market_vwap = ((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) / self.df.loc[:self.current_step, 'Volume'].values.sum()
+        market_vwap = (((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) /
+                       self.df.loc[:self.current_step, 'Volume'].values.sum())
         # Render the environment to the screen
         vwap_gap = market_vwap - self.cost_basis
 
@@ -160,8 +178,13 @@ class ExpectVolumeEnv(gym.Env):
 
     # render using matplotlib
     def render_plot(self, data_date:str):
+        '''
+        결과 시각화 함수
+        :param data_date: 날짜
+        :return: 시장 VWAP
+        내부에서 시각화 함수를 호출하여 결과를 시각화
+        '''
         # df = pd.DataFrame([[self.plot_data,self.shares_held_data]], columns=['vwap_gap, shares_held'])
-
         df = pd.DataFrame(self.plot_data, columns=['vwap_gap'])
         df['shares_held'] = self.shares_held_data
         df['market_vwap'] = self.market_vwap_data
@@ -179,7 +202,8 @@ class ExpectVolumeEnv(gym.Env):
         plt.legend(loc='upper left')
         plt.show()
 
-
         plt.plot(self.losses, c='r', label=f'{data_date} Losses')
         plt.legend(loc='upper left')
         plt.show()
+
+        return self.market_vwap_data[-1]
