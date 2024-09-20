@@ -46,7 +46,6 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(random_seed)
 random.seed(random_seed)
 
-
 # Load data
 df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20240111.csv", encoding='cp949')
 
@@ -77,17 +76,19 @@ model = PPO("MlpPolicy",
             )
 
 
-# # Total timesteps / Number of steps per episode = Number of episodes
-# model.learn(total_timesteps=len(df)*100)
 
-# # # Save model
-# model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}_{data_date}.zip")
+# Total timesteps / Number of steps per episode = Number of episodes
+model.learn(total_timesteps=len(df)*100)
+
+# # Save model
+model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}_{data_date}.zip")
 
 
 # Load Model
-model.load("./logs/ppo_vwap_predict_20240919_20240111.zip", env=env)
+model.load("./logs/ppo_vwap_predict_20240919_20240111.zip")
 
-obs, empty = env.reset()
+observation, empty = env.reset()
+
 
 print("mean: ", df['Close'].mean())
 plt.plot(df['Volume'], label=f'{data_date} Market Volume')
@@ -98,7 +99,7 @@ plt.show()
 
 # Render each environment separately
 for _ in range(len(df)-1):
-    action, _states = model.predict(obs)
+    action, _states = model.predict(observation)
     observation, reward, terminated, truncated, info = env.step(action)
     env.render()
 

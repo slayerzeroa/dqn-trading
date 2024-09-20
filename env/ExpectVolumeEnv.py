@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 class ExpectVolumeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
-    def __init__(self, df, seed=None):
+    def __init__(self, df):
         super().__init__()
 
         # 초기 설정값
@@ -19,17 +19,6 @@ class ExpectVolumeEnv(gym.Env):
 
         # 데이터 프레임 형식: ['time', 'volume']
         self.df = df
-
-
-        # 시드 설정
-        self.seed = seed
-
-        if self.seed is not None:
-            ss = SeedSequence(self.seed)
-            self.rng = default_rng(ss)
-
-        else:
-            self.rng = default_rng()
 
         # 초기 설정값
         # shares_buy = 각 step에서 산 주식 수, shares_held = 보유 주식 수, discount_factor = 할인율
@@ -92,7 +81,7 @@ class ExpectVolumeEnv(gym.Env):
         terminated = (self.current_step >= self.MAX_STEPS)
         if terminated:
             # self.current_step = 0
-            self.reset(seed=self.seed)
+            self.reset()
             print("Episode terminated")
 
         # reward 계산
@@ -132,13 +121,7 @@ class ExpectVolumeEnv(gym.Env):
         info = {}
         return observation, reward, terminated, truncated, info
 
-    def reset(self, seed=None, options=None):
-        # 랜덤 seed 설정
-        if seed is not None:
-            ss = SeedSequence(seed)
-            self.rng = default_rng(ss)
-        else:
-            self.rng = default_rng()
+    def reset(self, options=None):
 
         # 상태 초기화
         self.shares_held = 0
