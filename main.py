@@ -78,14 +78,13 @@ model = PPO("MlpPolicy",
 
 
 # Total timesteps / Number of steps per episode = Number of episodes
-model.learn(total_timesteps=len(df)*100)
+model.learn(total_timesteps=len(df)*100000)
 
 # # Save model
 model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}_{data_date}.zip")
 
-
-# Load Model
-model.load("./logs/ppo_vwap_predict_20240919_20240111.zip")
+# # Load Model
+# model.load("./logs/ppo_vwap_predict_20240919_20240111.zip")
 
 observation, empty = env.reset()
 
