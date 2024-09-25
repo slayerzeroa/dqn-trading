@@ -91,13 +91,19 @@ class ExpectVolumeEnv(gym.Env):
         self.discount_factor = self.current_step / self.MAX_STEPS
 
 
-        if self.shares_buy <= 4:
+
+        if self.shares_buy <= 1:
             reward = -100
         else:
-            if self.shares_buy - self.df.loc[self.current_step, 'Volume'] == 0:
-                reward = 100
-            else:
-                reward = (1/((self.shares_buy - self.df.loc[self.current_step, 'Volume'])**2)) * 10 * self.discount_factor
+            reward = (1 / ((self.shares_buy - (self.df.loc[self.current_step, 'Volume']/self.MAX_NUM_SHARES)) ** 2)) * 40 * self.discount_factor
+
+        # if self.shares_buy <= 4:
+        #     reward = -100
+        # else:
+        #     if self.shares_buy - self.df.loc[self.current_step, 'Volume'] == 0:
+        #         reward = 100
+        #     else:
+        #         reward = (1/((self.shares_buy - self.df.loc[self.current_step, 'Volume'])**2)) * 40 * self.discount_factor
 
         # # 코브라 효과 억제(주식을 안 살 때 Penalty)
         # if self.shares_buy < 4:
