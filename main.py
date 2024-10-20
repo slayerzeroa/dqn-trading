@@ -47,7 +47,7 @@ np.random.seed(random_seed)
 random.seed(random_seed)
 
 # Load data
-df = pd.read_csv("data/raw/kospi_minutes/[지수KOSPI계열]일중 시세정보(1분)(주문번호-2499-1)_20230314.csv", encoding='cp949')
+df = pd.read_csv("data/test/test.csv", encoding='cp949')
 
 # DataFrame Preprocessing
 df = df[df['지수명']=='코스피']
@@ -78,25 +78,23 @@ model = PPO("MlpPolicy",
 
 # # Callbacks
 # callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=1, verbose=1)
-stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=1000, min_evals=1000, verbose=1)
+# stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=1000, min_evals=1000, verbose=1)
 
 eval_callback = EvalCallback(
     env,
     eval_freq = len(df),
-    callback_after_eval=stop_train_callback,
-    verbose=1,
+    # callback_after_eval=stop_train_callback,
     best_model_save_path="./logs/"
 )
-
 
 # Total timesteps / Number of steps per episode = Number of episodes
 model.learn(total_timesteps=len(df)*100000, callback=eval_callback)
 
 # # Save model
 model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}_{data_date}.zip")
-#
+
 # # Load Model
-# model = PPO.load("./logs/ppo_vwap_predict_20240925_20230314.zip")
+# model = PPO.load("./logs/ppo_vwap_predict_20240925_20230111.zip")
 
 observation, empty = env.reset()
 
@@ -129,25 +127,26 @@ print(f"Static Model VWAP Gap: {market_vwap - static_model_vwap}")
 
 
 
+'''
+# Callbacks
+callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=1, verbose=1)
+stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=1000, min_evals=100, verbose=1)
 
-# # Callbacks
-# callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=1, verbose=1)
-# stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=1000, min_evals=100, verbose=1)
-#
-# eval_callback = EvalCallback(
-#     env,
-#     eval_freq = len(df),
-#     callback_on_new_best=callback_on_best,
-#     # callback_after_eval=stop_train_callback,
-#     verbose=1,
-#     best_model_save_path="./logs/"
-# )
-#
-# # Save a checkpoint every 1000 steps
-# checkpoint_callback = CheckpointCallback(
-#   save_freq=100000,
-#   save_path="./logs/",
-#   name_prefix="rl_model",
-#   save_replay_buffer=True,
-#   save_vecnormalize=True,
-# )
+eval_callback = EvalCallback(
+    env,
+    eval_freq = len(df),
+    callback_on_new_best=callback_on_best,
+    # callback_after_eval=stop_train_callback,
+    verbose=1,
+    best_model_save_path="./logs/"
+)
+
+# Save a checkpoint every 1000 steps
+checkpoint_callback = CheckpointCallback(
+  save_freq=100000,
+  save_path="./logs/",
+  name_prefix="rl_model",
+  save_replay_buffer=True,
+  save_vecnormalize=True,
+)
+'''

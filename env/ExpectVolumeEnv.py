@@ -39,7 +39,7 @@ class ExpectVolumeEnv(gym.Env):
         self.shares_held_data = []
         self.market_vwap_data = []
 
-        self.losses = []
+        self.rewards = []
     def _next_observation(self):
         # 장시작부터 Current Step 이전까지의 데이터를 0~1 사이로 스케일링
         frame = np.array([
@@ -90,43 +90,15 @@ class ExpectVolumeEnv(gym.Env):
         # 할인율 계산 장종료에 가까울수록 비중이 높아짐
         self.discount_factor = self.current_step / self.MAX_STEPS
 
-
-
+        # 코브라 효과 억제(주식을 안 살 때 Penalty)
         if self.shares_buy <= 1:
             reward = -100
         else:
-            reward = (1 / ((self.shares_buy - (self.df.loc[self.current_step, 'Volume']/self.MAX_NUM_SHARES)) ** 2)) * 40 * self.discount_factor
-
-        # if self.shares_buy <= 4:
-        #     reward = -100
-        # else:
-        #     if self.shares_buy - self.df.loc[self.current_step, 'Volume'] == 0:
-        #         reward = 100
-        #     else:
-        #         reward = (1/((self.shares_buy - self.df.loc[self.current_step, 'Volume'])**2)) * 40 * self.discount_factor
-
-        # # 코브라 효과 억제(주식을 안 살 때 Penalty)
-        # if self.shares_buy < 4:
-        #     if self.shares_buy <= 0:
-        #         reward = -100
-        #     else:
-        #         reward = -10
-        # if self.shares_buy >= 4:
-        #     # 시장 VWAP 계산
-        #     market_vwap = (((self.df.loc[:self.current_step, 'Close'] * self.df.loc[:self.current_step, 'Volume']).values.sum()) /
-        #                    self.df.loc[:self.current_step, 'Volume'].values.sum())
-        #     # 시장 VWAP보다 낮은 가격에 주식을 사면
-        #     better_than_market =  market_vwap > self.cost_basis
-        #     if better_than_market:
-        #         # 시장 VWAP보다 높은 가격에 주식을 사면 Reward을 받음
-        #         reward = 100
-        #     else:
-        #         # 시장 VWAP보다 낮은 가격에 주식을 사면 Penalty을 받음
-        #         reward = -(((self.shares_buy - self.df.loc[self.current_step, 'Volume']) / self.MAX_NUM_SHARES) ** 2) * self.discount_factor
+            reward = ((self.shares_buy - (self.df.loc[self.current_step, 'Volume']/self.MAX_NUM_SHARES)) ** 2) * self.discount_factor
 
         # remain_time = self.MAX_STEPS - self.current_step
         # reward = (market_vwap - self.cost_basis) / market_vwap * 100 / remain_time
-        self.losses.append(reward)
+        self.rewards.append(reward)
 
         # truncated
         truncated = False
@@ -200,8 +172,8 @@ class ExpectVolumeEnv(gym.Env):
         plt.legend(loc='upper left')
         plt.show()
 
-        plt.plot(self.losses, c='r', label=f'{data_date} Losses')
-        plt.legend(loc='upper left')
-        plt.show()
+        # plt.plot(self.rewards, c='r', label=f'{data_date} Reward')
+        # plt.legend(loc='upper left')
+        # plt.show()
 
         return self.market_vwap_data[-1]
