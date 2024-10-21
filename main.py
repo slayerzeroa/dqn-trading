@@ -1,3 +1,6 @@
+#### 첫 실행 시
+# pip install -r requirements.txt
+
 import json
 import datetime
 
