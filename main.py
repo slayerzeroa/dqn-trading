@@ -87,14 +87,14 @@ eval_callback = EvalCallback(
     best_model_save_path="./logs/"
 )
 
-# Total timesteps / Number of steps per episode = Number of episodes
-model.learn(total_timesteps=len(df)*100000, callback=eval_callback)
+# # Total timesteps / Number of steps per episode = Number of episodes
+# model.learn(total_timesteps=len(df)*100000, callback=eval_callback)
+#
+# # # Save model
+# model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}_{data_date}.zip")
 
-# # Save model
-model.save(f"./logs/ppo_vwap_predict_{datetime.datetime.now().strftime('%Y%m%d')}_{data_date}.zip")
-
-# # Load Model
-# model = PPO.load("./logs/ppo_vwap_predict_20240925_20230111.zip")
+# Load Model
+model = PPO.load("./logs/test.zip")
 
 observation, empty = env.reset()
 
